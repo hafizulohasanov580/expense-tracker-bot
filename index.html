@@ -222,8 +222,8 @@ const CATEGORY_ICONS = {
   'Еда':'🍔','Транспорт':'🚗','Дом':'🏠','Здоровье':'💊','Развлечения':'🎬',
   'Одежда':'👕','Связь':'📱','Образование':'📚','Прочее':'📦'
 };
-const CURRENCIES = ['RUB','USD','EUR'];
-const CUR_SYMBOL = { RUB:'₽', USD:'$', EUR:'€' };
+const CURRENCIES = ['TJS','RUB','USD','EUR'];
+const CUR_SYMBOL = { TJS:'SM', RUB:'₽', USD:'$', EUR:'€' };
 
 const state = { period: 'month', me: null, summary: null, expenses: [], categories: [], fab: null };
 const $ = (s, el) => (el||document).querySelector(s);
@@ -231,7 +231,7 @@ const root = () => document.getElementById('root');
 const BASE = 'https://stkevjznrrbcfvkxrxut.supabase.co/functions/v1/app';
 
 function getDefaultCurrency() {
-  try { return localStorage.getItem('defaultCurrency') || 'RUB'; } catch (e) { return 'RUB'; }
+  try { return localStorage.getItem('defaultCurrency') || 'TJS'; } catch (e) { return 'TJS'; }
 }
 function setDefaultCurrency(cur) {
   try { localStorage.setItem('defaultCurrency', cur); } catch (e) { /* ignore */ }
@@ -254,6 +254,61 @@ function fmtDay(d) {
   return dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' });
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ---------------------------------------------------------------------------
+// Haptics + sound — small feedback on actions that change your balance.
+// Both are best-effort: iOS Safari has no navigator.vibrate, and audio
+// needs a user gesture to start, which every caller here already is.
+// ---------------------------------------------------------------------------
+
+function haptic(ms) {
+  try { if (navigator.vibrate) navigator.vibrate(ms || 8); } catch (e) { /* not supported */ }
+}
+
+let audioCtx = null;
+function getAudioCtx() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    return audioCtx;
+  } catch (e) { return null; }
+}
+// A short two-note "coin" chime, synthesized on the fly — no audio file to load.
+function playCoinSound() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  [880, 1318.5].forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const t0 = now + i * 0.075;
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.linearRampToValueAtTime(0.16, t0 + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.24);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.26);
+  });
+}
+// A softer single blip for delete/undo.
+function playBlipSound() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(520, now);
+  osc.frequency.exponentialRampToValueAtTime(300, now + 0.14);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(0.14, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.18);
+}
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -289,9 +344,7 @@ function showLogin() {
 
 function renderSkeleton() {
   root().innerHTML =
-    '<div class="tabs">' +
-      '<div class="tab active">Сегодня</div><div class="tab">Неделя</div><div class="tab">Месяц</div>' +
-    '</div>' +
+    '<div class="tabs">' + tab('today','Сегодня') + tab('week','Неделя') + tab('month','Месяц') + '</div>' +
     '<div class="card">' +
       '<div class="skel skel-total"></div><div class="skel skel-sub"></div>' +
       '<div class="skel skel-bar"></div><div class="skel skel-bar" style="width:70%"></div><div class="skel skel-bar" style="width:45%"></div>' +
@@ -358,7 +411,7 @@ function render() {
     '</div>' +
     '<button class="fab" onclick="openAdd()">+</button>';
 
-  document.querySelectorAll('.tab').forEach(t => t.onclick = () => loadPeriod(t.dataset.p));
+  document.querySelectorAll('.tab').forEach(t => t.onclick = () => { haptic(6); loadPeriod(t.dataset.p); });
 
   // animate numbers + bars in
   requestAnimationFrame(() => {
@@ -456,6 +509,7 @@ function selectedCurrency() {
 }
 
 function openAdd() {
+  haptic(8);
   const def = getDefaultCurrency();
   showModal(
     '<h3>Новая трата</h3>' +
@@ -480,12 +534,15 @@ async function submitAdd() {
   })});
   closeModal();
   await loadPeriod(state.period);
+  playCoinSound();
+  haptic(10);
   showToast('Добавлено: ' + fmtMoney(amount, currency) + (desc ? ' · ' + escapeHtml(desc) : ''));
 }
 
 function openEdit(id) {
   const e = state.expenses.find(x => x.id === id);
   if (!e) return;
+  haptic(8);
   showModal(
     '<h3>Изменить трату</h3>' +
     '<div class="field"><label>Сумма</label><input id="f_amount" type="number" inputmode="decimal" value="' + e.amount + '"></div>' +
@@ -505,6 +562,8 @@ async function submitEdit(id) {
   })});
   closeModal();
   await loadPeriod(state.period);
+  playCoinSound();
+  haptic(10);
   showToast('Сохранено');
 }
 
@@ -516,6 +575,8 @@ function delExpense(id) {
   const row = document.getElementById('exp-' + id);
   const e = state.expenses.find(x => x.id === id);
   if (row) row.classList.add('leaving');
+  haptic(12);
+  playBlipSound();
   const label = e ? (e.description || e.category) : 'трата';
   const dismissToast = showToast('Удалено: ' + escapeHtml(label), {
     actionLabel: 'Отменить',
@@ -524,6 +585,7 @@ function delExpense(id) {
       clearTimeout(pendingDeletes[id]);
       delete pendingDeletes[id];
       if (row) row.classList.remove('leaving');
+      haptic(6);
     },
   });
   pendingDeletes[id] = setTimeout(async () => {
@@ -551,10 +613,12 @@ async function saveBudgets() {
   await api('api/budgets', { method: 'POST', body: JSON.stringify({ items }) });
   closeModal();
   await loadPeriod(state.period);
+  haptic(10);
   showToast('Лимиты сохранены');
 }
 
 function openSettings() {
+  haptic(8);
   const def = getDefaultCurrency();
   showModal(
     '<h3>Настройки</h3>' +
@@ -567,6 +631,7 @@ function openSettings() {
 function saveSettings() {
   setDefaultCurrency(selectedCurrency());
   closeModal();
+  haptic(8);
   showToast('Готово');
 }
 
