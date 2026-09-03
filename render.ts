@@ -1,0 +1,268 @@
+// Self-contained SPA: no build step, no external CDN, mobile-first.
+
+export function renderPanel(): string {
+  return `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Мои траты</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --card2:#1e222b; --text:#eef0f4; --muted:#9aa3b2;
+    --accent:#6c8dff; --danger:#ff6b6b; --ok:#33c37a; --warn:#f5a623; --border:#2a2f3a;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f5f8; --card:#ffffff; --card2:#f0f1f5; --text:#1b1e27; --muted:#6b7280;
+      --accent:#3b5fe0; --danger:#e0453f; --ok:#1f9d5c; --warn:#c97a12; --border:#e4e6ec; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding-bottom:90px}
+  header{position:sticky;top:0;background:var(--bg);padding:16px 16px 8px;z-index:5;border-bottom:1px solid var(--border)}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px}
+  main{padding:12px 12px 8px;max-width:640px;margin:0 auto}
+  .tabs{display:flex;gap:6px;margin:10px 0 14px}
+  .tab{flex:1;text-align:center;padding:9px 6px;border-radius:10px;background:var(--card2);color:var(--muted);font-size:14px;cursor:pointer;border:1px solid transparent}
+  .tab.active{background:var(--accent);color:#fff}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px}
+  .total{font-size:32px;font-weight:700}
+  .total .cur{font-size:18px;color:var(--muted);font-weight:500}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .catbar-wrap{margin-top:14px}
+  .catrow{margin-bottom:10px}
+  .catrow .row{font-size:14px;margin-bottom:4px}
+  .bar-bg{height:8px;background:var(--card2);border-radius:5px;overflow:hidden}
+  .bar-fill{height:100%;background:var(--accent);border-radius:5px}
+  .bar-fill.over{background:var(--danger)}
+  .day-group{margin-bottom:6px}
+  .day-label{color:var(--muted);font-size:12px;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em}
+  .expense{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+  .expense .desc{font-weight:600;font-size:14.5px}
+  .expense .cat{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .expense .amt{font-weight:700;font-size:15px;white-space:nowrap;margin-left:10px}
+  .expense .actions{display:flex;gap:6px;margin-left:8px}
+  .iconbtn{border:none;background:var(--card2);color:var(--muted);width:30px;height:30px;border-radius:8px;font-size:14px;cursor:pointer}
+  .iconbtn:active{transform:scale(.95)}
+  .fab{position:fixed;right:18px;bottom:18px;width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;font-size:28px;border:none;box-shadow:0 6px 18px rgba(0,0,0,.35);cursor:pointer}
+  .empty{color:var(--muted);text-align:center;padding:30px 10px;font-size:14px}
+  .toolbar{display:flex;gap:8px;margin-bottom:10px}
+  .btn{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:13.5px;cursor:pointer}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:20}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--bg);width:100%;max-width:640px;border-radius:18px 18px 0 0;padding:18px;border:1px solid var(--border)}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px}
+  .field input,.field select{width:100%;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:15px}
+  .modal-actions{display:flex;gap:8px;margin-top:6px}
+  .modal-actions .btn.primary{background:var(--accent);color:#fff;border-color:transparent}
+  .modal-actions .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+  .loading{text-align:center;color:var(--muted);padding:40px 10px}
+  a{color:var(--accent)}
+  .login-screen{max-width:420px;margin:80px auto;text-align:center;padding:0 20px}
+</style>
+</head>
+<body>
+<div id="root"><div class="loading">Загрузка…</div></div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<script>
+const state = { period: 'month', me: null, summary: null, expenses: [], categories: [] };
+const $ = (s, el) => (el||document).querySelector(s);
+const root = () => document.getElementById('root');
+const BASE = location.pathname.replace(/\\/$/, '');
+
+async function api(path, opts) {
+  const res = await fetch(BASE + '/' + path, Object.assign({ credentials: 'include', headers: { 'Content-Type': 'application/json' } }, opts));
+  if (res.status === 401) { showLogin(); throw new Error('unauthorized'); }
+  if (!res.ok) throw new Error(await res.text());
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('application/json') ? res.json() : res.text();
+}
+
+function fmtMoney(n, cur) {
+  const s = Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+  const sym = cur === 'USD' ? '$' : cur === 'EUR' ? '€' : '₽';
+  return s + ' ' + sym;
+}
+function fmtDay(d) {
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' });
+}
+
+async function boot() {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  if (token) {
+    try {
+      await api('api/login', { method: 'POST', body: JSON.stringify({ token }) });
+      history.replaceState({}, '', location.pathname);
+    } catch (e) { /* invalid/expired token -> will fall through to login screen */ }
+  }
+  try {
+    state.me = await api('api/me');
+  } catch (e) {
+    showLogin();
+    return;
+  }
+  state.categories = await api('api/categories');
+  await loadPeriod('month');
+}
+
+function showLogin() {
+  root().innerHTML = '<div class="login-screen"><h1>Вход через Telegram</h1>' +
+    '<p class="sub">Откройте бота в Telegram и нажмите «Открыть панель» — ссылка авторизует вас автоматически, без пароля.</p></div>';
+}
+
+async function loadPeriod(period) {
+  state.period = period;
+  root().innerHTML = '<div class="loading">Загрузка…</div>';
+  const [summary, expenses] = await Promise.all([
+    api('api/summary?period=' + period),
+    api('api/expenses?period=' + period),
+  ]);
+  state.summary = summary;
+  state.expenses = expenses;
+  render();
+}
+
+function render() {
+  const s = state.summary;
+  const totalsHtml = Object.entries(s.totals_by_currency).map(([cur, val]) =>
+    '<div class="total">' + fmtMoney(val, cur) + '</div>'
+  ).join('') || '<div class="total">0 ₽</div>';
+
+  const maxCat = Math.max(1, ...s.by_category.map(c => c.total));
+  const catsHtml = s.by_category.map(c => {
+    const pct = Math.round((c.total / maxCat) * 100);
+    const over = c.limit && c.total > c.limit;
+    return '<div class="catrow"><div class="row"><span>' + c.category + '</span>' +
+      '<span>' + fmtMoney(c.total, c.currency) + (c.limit ? ' / ' + fmtMoney(c.limit, c.currency) : '') + '</span></div>' +
+      '<div class="bar-bg"><div class="bar-fill' + (over ? ' over' : '') + '" style="width:' + pct + '%"></div></div></div>';
+  }).join('') || '<div class="empty">Пока нет трат за этот период</div>';
+
+  const byDay = {};
+  for (const e of state.expenses) (byDay[e.spent_at] ||= []).push(e);
+  const days = Object.keys(byDay).sort().reverse();
+  const listHtml = days.length ? days.map(d =>
+    '<div class="day-group"><div class="day-label">' + fmtDay(d) + '</div>' +
+    byDay[d].map(e => expenseRow(e)).join('') + '</div>'
+  ).join('') : '<div class="empty">Трат пока нет — напишите боту, например «кофе 350»</div>';
+
+  root().innerHTML =
+    '<header><h1>Привет' + (state.me.first_name ? ', ' + escapeHtml(state.me.first_name) : '') + '</h1>' +
+    '<div class="sub">@' + (state.me.username || '—') + '</div></header>' +
+    '<main>' +
+      '<div class="tabs">' +
+        tab('today','Сегодня') + tab('week','Неделя') + tab('month','Месяц') +
+      '</div>' +
+      '<div class="card">' + totalsHtml + '<div class="sub">итого за период</div>' +
+        '<div class="catbar-wrap">' + catsHtml + '</div></div>' +
+      '<div class="toolbar">' +
+        '<button class="btn" onclick="exportCsv()">⬇️ Экспорт CSV</button>' +
+        '<button class="btn" onclick="openBudgets()">🎯 Лимиты</button>' +
+      '</div>' +
+      listHtml +
+    '</main>' +
+    '<button class="fab" onclick="openAdd()">+</button>';
+
+  document.querySelectorAll('.tab').forEach(t => t.onclick = () => loadPeriod(t.dataset.p));
+}
+
+function tab(p, label) {
+  return '<div class="tab' + (state.period === p ? ' active' : '') + '" data-p="' + p + '">' + label + '</div>';
+}
+
+function expenseRow(e) {
+  return '<div class="expense">' +
+    '<div><div class="desc">' + escapeHtml(e.description || '—') + '</div><div class="cat">' + escapeHtml(e.category) + '</div></div>' +
+    '<div class="row"><div class="amt">' + fmtMoney(e.amount, e.currency) + '</div>' +
+    '<div class="actions">' +
+      '<button class="iconbtn" onclick="openEdit(' + e.id + ')">✏️</button>' +
+      '<button class="iconbtn" onclick="delExpense(' + e.id + ')">🗑</button>' +
+    '</div></div></div>';
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function showModal(html) { $('#modalBody').innerHTML = html; $('#modalBg').classList.add('show'); }
+function closeModal() { $('#modalBg').classList.remove('show'); }
+document.getElementById('modalBg').addEventListener('click', (e) => { if (e.target.id === 'modalBg') closeModal(); });
+
+function categoryOptions(selected) {
+  return state.categories.map(c => '<option value="' + c + '"' + (c === selected ? ' selected' : '') + '>' + c + '</option>').join('');
+}
+
+function openAdd() {
+  showModal(
+    '<div class="field"><label>Сумма</label><input id="f_amount" type="number" inputmode="decimal" placeholder="350"></div>' +
+    '<div class="field"><label>Описание</label><input id="f_desc" placeholder="кофе"></div>' +
+    '<div class="field"><label>Категория</label><select id="f_cat">' + categoryOptions(null) + '</select></div>' +
+    '<div class="modal-actions"><button class="btn" onclick="closeModal()">Отмена</button>' +
+    '<button class="btn primary" onclick="submitAdd()">Добавить</button></div>'
+  );
+}
+async function submitAdd() {
+  const amount = parseFloat($('#f_amount').value);
+  if (!amount || amount <= 0) return;
+  await api('api/expenses', { method: 'POST', body: JSON.stringify({
+    amount, description: $('#f_desc').value, category: $('#f_cat').value,
+  })});
+  closeModal();
+  loadPeriod(state.period);
+}
+
+function openEdit(id) {
+  const e = state.expenses.find(x => x.id === id);
+  if (!e) return;
+  showModal(
+    '<div class="field"><label>Сумма</label><input id="f_amount" type="number" inputmode="decimal" value="' + e.amount + '"></div>' +
+    '<div class="field"><label>Описание</label><input id="f_desc" value="' + escapeHtml(e.description) + '"></div>' +
+    '<div class="field"><label>Категория</label><select id="f_cat">' + categoryOptions(e.category) + '</select></div>' +
+    '<div class="modal-actions"><button class="btn danger" onclick="delExpense(' + id + ')">Удалить</button>' +
+    '<button class="btn primary" onclick="submitEdit(' + id + ')">Сохранить</button></div>'
+  );
+}
+async function submitEdit(id) {
+  const amount = parseFloat($('#f_amount').value);
+  await api('api/expenses/' + id, { method: 'PATCH', body: JSON.stringify({
+    amount, description: $('#f_desc').value, category: $('#f_cat').value,
+  })});
+  closeModal();
+  loadPeriod(state.period);
+}
+async function delExpense(id) {
+  await api('api/expenses/' + id, { method: 'DELETE' });
+  closeModal();
+  loadPeriod(state.period);
+}
+
+async function openBudgets() {
+  const budgets = await api('api/budgets');
+  const rows = state.categories.map(c => {
+    const b = budgets.find(x => x.category === c);
+    return '<div class="field"><label>' + c + '</label><input data-cat="' + c + '" type="number" inputmode="decimal" placeholder="без лимита" value="' + (b ? b.monthly_limit : '') + '"></div>';
+  }).join('');
+  showModal('<h3 style="margin-top:0">Лимиты на месяц</h3>' + rows +
+    '<div class="modal-actions"><button class="btn" onclick="closeModal()">Закрыть</button>' +
+    '<button class="btn primary" onclick="saveBudgets()">Сохранить</button></div>');
+}
+async function saveBudgets() {
+  const inputs = document.querySelectorAll('[data-cat]');
+  const items = [];
+  inputs.forEach(i => items.push({ category: i.dataset.cat, monthly_limit: i.value ? parseFloat(i.value) : null }));
+  await api('api/budgets', { method: 'POST', body: JSON.stringify({ items }) });
+  closeModal();
+  loadPeriod(state.period);
+}
+
+function exportCsv() { window.location.href = BASE + '/api/export.csv'; }
+
+boot();
+</script>
+</body>
+</html>`;
+}

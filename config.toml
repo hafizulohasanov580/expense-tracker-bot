@@ -1,0 +1,4 @@
+project_id = "expense-tracker-bot"
+
+[functions.app]
+verify_jwt = false
