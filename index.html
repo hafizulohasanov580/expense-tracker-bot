@@ -52,7 +52,7 @@
   }
   .gear:active{transform:scale(.92)}
 
-  main{padding:6px 16px 8px;max-width:1080px;margin:0 auto;animation:fadeIn .45s ease both}
+  main{padding:6px 16px 8px;max-width:1080px;margin:0 auto;animation:fadeIn .22s ease both}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
   .layout{display:block}
@@ -69,7 +69,7 @@
   .card{
     background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;
     margin-bottom:14px;box-shadow:var(--shadow);
-    animation:riseIn .5s cubic-bezier(.2,.8,.2,1) both;
+    animation:riseIn .28s cubic-bezier(.2,.8,.2,1) both;
   }
   @keyframes riseIn{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:none}}
 
@@ -85,7 +85,7 @@
   .catrow .cat-name{display:flex;align-items:center;gap:7px;font-weight:600}
   .catrow .cat-icon{font-size:15px}
   .bar-bg{height:8px;background:var(--card2);border-radius:6px;overflow:hidden}
-  .bar-fill{height:100%;background:var(--grad);border-radius:6px;width:0;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+  .bar-fill{height:100%;background:var(--grad);border-radius:6px;width:0;transition:width .45s cubic-bezier(.2,.8,.2,1)}
   .bar-fill.over{background:linear-gradient(135deg,var(--danger),#ff9166)}
 
   .day-group{margin-bottom:4px}
@@ -93,8 +93,8 @@
   .expense{
     display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);
     border-radius:var(--radius-sm);padding:13px 14px;margin-bottom:9px;
-    animation:itemIn .38s cubic-bezier(.2,.8,.2,1) both;
-    transition:transform .18s ease, box-shadow .18s ease, opacity .25s ease, max-height .3s ease, margin .3s ease, padding .3s ease;
+    animation:itemIn .2s cubic-bezier(.2,.8,.2,1) both;
+    transition:transform .15s ease, box-shadow .15s ease, opacity .16s ease, max-height .18s ease, margin .18s ease, padding .18s ease;
   }
   .expense.leaving{opacity:0;transform:scale(.94);max-height:0;margin-bottom:0;padding-top:0;padding-bottom:0;overflow:hidden}
   @keyframes itemIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -133,11 +133,11 @@
   .btn:hover{background:var(--border)}
   .btn:active{transform:scale(.97)}
 
-  .modal-bg{position:fixed;inset:0;background:rgba(6,8,14,.55);backdrop-filter:blur(2px);display:none;align-items:flex-end;justify-content:center;z-index:20;opacity:0;transition:opacity .2s ease}
+  .modal-bg{position:fixed;inset:0;background:rgba(6,8,14,.55);backdrop-filter:blur(2px);display:none;align-items:flex-end;justify-content:center;z-index:20;opacity:0;transition:opacity .14s ease}
   .modal-bg.show{display:flex;opacity:1}
   .modal{
     background:var(--bg);width:100%;max-width:640px;border-radius:20px 20px 0 0;padding:20px;border:1px solid var(--border);
-    transform:translateY(16px);transition:transform .25s cubic-bezier(.2,.8,.2,1);box-shadow:0 -12px 30px rgba(0,0,0,.3);
+    transform:translateY(16px);transition:transform .16s cubic-bezier(.2,.8,.2,1);box-shadow:0 -12px 30px rgba(0,0,0,.3);
   }
   .modal-bg.show .modal{transform:translateY(0)}
   @media (min-width:860px){
@@ -175,9 +175,9 @@
     pointer-events:auto;background:var(--card);border:1px solid var(--border);color:var(--text);
     padding:11px 14px;border-radius:14px;font-size:13.5px;box-shadow:var(--shadow);
     display:flex;align-items:center;gap:12px;max-width:88vw;
-    animation:toastIn .28s cubic-bezier(.2,.8,.2,1) both;
+    animation:toastIn .18s cubic-bezier(.2,.8,.2,1) both;
   }
-  .toast.leaving{animation:toastOut .22s ease both}
+  .toast.leaving{animation:toastOut .16s ease both}
   @keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
   @keyframes toastOut{to{opacity:0;transform:translateY(6px) scale(.96)}}
   .toast button{background:none;border:none;color:var(--accent);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;padding:2px}
@@ -217,6 +217,8 @@
 
 <div id="toastWrap"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const CATEGORY_ICONS = {
   'Еда':'🍔','Транспорт':'🚗','Дом':'🏠','Здоровье':'💊','Развлечения':'🎬',
@@ -291,6 +293,21 @@ function playCoinSound() {
     osc.start(t0);
     osc.stop(t0 + 0.26);
   });
+}
+// A tiny, quiet click — like the iOS keyboard sound — played per keystroke.
+function playKeySound() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = 1300 + Math.random() * 200;
+  gain.gain.setValueAtTime(0.05, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.028);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.03);
 }
 // A softer single blip for delete/undo.
 function playBlipSound() {
@@ -403,7 +420,7 @@ function render() {
         '<div class="card">' + totalsHtml + '<div class="sub">итого за период</div>' +
           '<div class="catbar-wrap">' + catsHtml + '</div></div>' +
         '<div class="toolbar">' +
-          '<button class="btn" onclick="exportCsv()">⬇️ CSV</button>' +
+          '<button class="btn" onclick="exportPdf()">📄 PDF</button>' +
           '<button class="btn" onclick="openBudgets()">🎯 Лимиты</button>' +
         '</div>' +
       '</div>' +
@@ -424,7 +441,7 @@ function animateCount(el) {
   const target = parseFloat(el.dataset.count);
   const cur = el.dataset.cur;
   const start = performance.now();
-  const dur = 650;
+  const dur = 380;
   function step(now) {
     const p = Math.min(1, (now - start) / dur);
     const eased = 1 - Math.pow(1 - p, 3);
@@ -472,7 +489,7 @@ function showToast(message, opts) {
   function dismiss() {
     clearTimeout(t);
     el.classList.add('leaving');
-    setTimeout(() => el.remove(), 220);
+    setTimeout(() => el.remove(), 160);
   }
   return dismiss;
 }
@@ -484,6 +501,10 @@ function showToast(message, opts) {
 function showModal(html) { $('#modalBody').innerHTML = html; $('#modalBg').classList.add('show'); }
 function closeModal() { $('#modalBg').classList.remove('show'); }
 document.getElementById('modalBg').addEventListener('click', (e) => { if (e.target.id === 'modalBg') closeModal(); });
+// Keyboard click sound for every character typed in a modal text field.
+$('#modalBody').addEventListener('input', (e) => {
+  if (e.target.tagName === 'INPUT') { playKeySound(); haptic(4); }
+});
 
 function categoryOptions(selected) {
   return state.categories.map(c => {
@@ -521,22 +542,31 @@ function openAdd() {
     '<button class="btn primary" onclick="submitAdd()">Добавить</button></div>'
   );
   wireCurToggle();
-  setTimeout(() => $('#f_amount').focus(), 260);
+  setTimeout(() => $('#f_amount').focus(), 160);
 }
+let modalBusy = false;
 async function submitAdd() {
+  if (modalBusy) return; // ignore extra taps while the first add is still in flight
   const amount = parseFloat($('#f_amount').value);
   if (!amount || amount <= 0) { $('#f_amount').focus(); return; }
-  const currency = selectedCurrency();
-  setDefaultCurrency(currency);
-  const desc = $('#f_desc').value;
-  await api('api/expenses', { method: 'POST', body: JSON.stringify({
-    amount, currency, description: desc, category: $('#f_cat').value,
-  })});
-  closeModal();
-  await loadPeriod(state.period);
-  playCoinSound();
-  haptic(10);
-  showToast('Добавлено: ' + fmtMoney(amount, currency) + (desc ? ' · ' + escapeHtml(desc) : ''));
+  modalBusy = true;
+  const btn = document.querySelector('.modal-actions .btn.primary');
+  if (btn) btn.disabled = true;
+  try {
+    const currency = selectedCurrency();
+    setDefaultCurrency(currency);
+    const desc = $('#f_desc').value;
+    await api('api/expenses', { method: 'POST', body: JSON.stringify({
+      amount, currency, description: desc, category: $('#f_cat').value,
+    })});
+    closeModal();
+    await loadPeriod(state.period);
+    playCoinSound();
+    haptic(10);
+    showToast('Добавлено: ' + fmtMoney(amount, currency) + (desc ? ' · ' + escapeHtml(desc) : ''));
+  } finally {
+    modalBusy = false;
+  }
 }
 
 function openEdit(id) {
@@ -555,16 +585,25 @@ function openEdit(id) {
   wireCurToggle();
 }
 async function submitEdit(id) {
+  if (modalBusy) return;
   const amount = parseFloat($('#f_amount').value);
-  const currency = selectedCurrency();
-  await api('api/expenses/' + id, { method: 'PATCH', body: JSON.stringify({
-    amount, currency, description: $('#f_desc').value, category: $('#f_cat').value,
-  })});
-  closeModal();
-  await loadPeriod(state.period);
-  playCoinSound();
-  haptic(10);
-  showToast('Сохранено');
+  if (!amount || amount <= 0) { $('#f_amount').focus(); return; }
+  modalBusy = true;
+  const btn = document.querySelector('.modal-actions .btn.primary');
+  if (btn) btn.disabled = true;
+  try {
+    const currency = selectedCurrency();
+    await api('api/expenses/' + id, { method: 'PATCH', body: JSON.stringify({
+      amount, currency, description: $('#f_desc').value, category: $('#f_cat').value,
+    })});
+    closeModal();
+    await loadPeriod(state.period);
+    playCoinSound();
+    haptic(10);
+    showToast('Сохранено');
+  } finally {
+    modalBusy = false;
+  }
 }
 
 // Optimistic delete: hide immediately, show an "Undo" toast, only call the
@@ -572,6 +611,7 @@ async function submitEdit(id) {
 // it obvious *what* just got deleted instead of the list silently changing.
 const pendingDeletes = {};
 function delExpense(id) {
+  if (pendingDeletes[id]) return; // already being deleted, ignore extra taps
   const row = document.getElementById('exp-' + id);
   const e = state.expenses.find(x => x.id === id);
   if (row) row.classList.add('leaving');
@@ -607,14 +647,22 @@ async function openBudgets() {
     '<button class="btn primary" onclick="saveBudgets()">Сохранить</button></div>');
 }
 async function saveBudgets() {
-  const inputs = document.querySelectorAll('[data-cat]');
-  const items = [];
-  inputs.forEach(i => items.push({ category: i.dataset.cat, monthly_limit: i.value ? parseFloat(i.value) : null }));
-  await api('api/budgets', { method: 'POST', body: JSON.stringify({ items }) });
-  closeModal();
-  await loadPeriod(state.period);
-  haptic(10);
-  showToast('Лимиты сохранены');
+  if (modalBusy) return;
+  modalBusy = true;
+  const btn = document.querySelector('.modal-actions .btn.primary');
+  if (btn) btn.disabled = true;
+  try {
+    const inputs = document.querySelectorAll('[data-cat]');
+    const items = [];
+    inputs.forEach(i => items.push({ category: i.dataset.cat, monthly_limit: i.value ? parseFloat(i.value) : null }));
+    await api('api/budgets', { method: 'POST', body: JSON.stringify({ items }) });
+    closeModal();
+    await loadPeriod(state.period);
+    haptic(10);
+    showToast('Лимиты сохранены');
+  } finally {
+    modalBusy = false;
+  }
 }
 
 function openSettings() {
@@ -635,7 +683,97 @@ function saveSettings() {
   showToast('Готово');
 }
 
-function exportCsv() { window.location.href = BASE + '/api/export.csv'; }
+// ---------------------------------------------------------------------------
+// PDF export — renders a paper-styled report of the current period to an
+// offscreen node, rasterizes it (so Cyrillic text always renders correctly,
+// no font-embedding needed) and drops it into a paginated A4 PDF.
+// ---------------------------------------------------------------------------
+
+function periodLabel(p) {
+  return p === 'today' ? 'Сегодня' : p === 'week' ? 'За неделю' : 'За месяц';
+}
+
+function buildReportHtml() {
+  const s = state.summary;
+  const totals = Object.entries(s.totals_by_currency).map(([cur, val]) => fmtMoney(val, cur)).join(' + ') || '0';
+  const catRows = s.by_category.map(c => {
+    const icon = CATEGORY_ICONS[c.category] || '📦';
+    return '<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;">' + icon + ' ' + escapeHtml(c.category) + '</td>' +
+      '<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:700;">' + fmtMoney(c.total, c.currency) +
+      (c.limit ? ' <span style="color:#999;font-weight:400">/ ' + fmtMoney(c.limit, c.currency) + '</span>' : '') + '</td></tr>';
+  }).join('') || '<tr><td colspan="2" style="padding:10px;color:#999;">Пока нет трат</td></tr>';
+
+  const byDay = {};
+  for (const e of state.expenses) (byDay[e.spent_at] ||= []).push(e);
+  const days = Object.keys(byDay).sort().reverse();
+  const rowsHtml = days.length ? days.map(d => {
+    const dayRows = byDay[d].map(e => {
+      const icon = CATEGORY_ICONS[e.category] || '📦';
+      return '<tr>' +
+        '<td style="padding:7px 10px;border-bottom:1px solid #f2f2f2;">' + icon + ' ' + escapeHtml(e.description || '—') +
+        '<div style="color:#999;font-size:11px">' + escapeHtml(e.category) + '</div></td>' +
+        '<td style="padding:7px 10px;border-bottom:1px solid #f2f2f2;text-align:right;font-weight:600;white-space:nowrap;">' + fmtMoney(e.amount, e.currency) + '</td>' +
+      '</tr>';
+    }).join('');
+    return '<tr><td colspan="2" style="padding:14px 10px 4px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#999;font-weight:700;">' + fmtDay(d) + '</td></tr>' + dayRows;
+  }).join('') : '<tr><td colspan="2" style="padding:14px 10px;color:#999;">Трат нет</td></tr>';
+
+  const generated = new Date().toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const who = (state.me && state.me.first_name ? escapeHtml(state.me.first_name) : '') + (state.me && state.me.username ? ' · @' + escapeHtml(state.me.username) : '');
+
+  return '' +
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">' +
+      '<div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#7c8cff,#9d6bff);display:flex;align-items:center;justify-content:center;font-size:20px;">💸</div>' +
+      '<div><div style="font-size:20px;font-weight:800;color:#1a1d29;">Мои траты</div>' +
+      '<div style="font-size:12px;color:#888;">' + who + '</div></div>' +
+    '</div>' +
+    '<div style="font-size:12px;color:#999;margin-bottom:20px;">' + periodLabel(state.period) + ' · сформировано ' + generated + '</div>' +
+    '<div style="font-size:30px;font-weight:800;margin-bottom:4px;color:#1a1d29;">' + totals + '</div>' +
+    '<div style="font-size:12px;color:#999;margin-bottom:16px;">итого за период</div>' +
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:8px;color:#1a1d29;">' + catRows + '</table>' +
+    '<div style="height:1px;background:#eee;margin:18px 0;"></div>' +
+    '<table style="width:100%;border-collapse:collapse;color:#1a1d29;">' + rowsHtml + '</table>' +
+    '<div style="margin-top:24px;font-size:10.5px;color:#bbb;text-align:center;">Сгенерировано ботом @Rashod_tj_bot</div>';
+}
+
+async function exportPdf() {
+  if (!window.jspdf || !window.html2canvas) { showToast('PDF ещё загружается — попробуйте ещё раз через секунду'); return; }
+  haptic(8);
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-10000px;top:0;width:720px;background:#ffffff;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;padding:32px;';
+  container.innerHTML = buildReportHtml();
+  document.body.appendChild(container);
+  try {
+    const canvas = await html2canvas(container, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = canvas.height * (imgWidth / canvas.width);
+    // JPEG at high quality keeps this a readable few-hundred-KB file instead
+    // of a multi-MB PNG — it's a text/table report, not a photo, so the
+    // slight compression is not visible.
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+    while (heightLeft > 0) {
+      position -= pageHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+    pdf.save('expenses-' + state.period + '-' + localDateStr() + '.pdf');
+    haptic(10);
+  } catch (e) {
+    showToast('Не получилось собрать PDF, попробуйте ещё раз');
+  } finally {
+    container.remove();
+  }
+}
+function localDateStr() { return new Date().toISOString().slice(0, 10); }
 
 boot();
 </script>
